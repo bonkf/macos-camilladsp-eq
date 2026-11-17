@@ -1,0 +1,28 @@
+title: "Audeze LCD-2 Classic - Flat (Level-Matched A/B Bypass)"
+description: "Flat passthrough at -7.0 dB for gapless loudness-matched A/B comparison"
+
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  enable_rate_adjust: true
+  capture:
+    type: CoreAudio
+    channels: 2
+    device: "BlackHole 2ch"
+  playback:
+    type: CoreAudio
+    channels: 2
+    device: "Speaker-Schiit USB Audio Device"
+
+filters:
+  preamp:
+    type: Gain
+    parameters:
+      gain: -7.0
+      scale: dB
+
+pipeline:
+  - type: Filter
+    channels: [0, 1]
+    names:
+      - preamp

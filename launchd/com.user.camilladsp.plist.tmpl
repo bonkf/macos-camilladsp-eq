@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.camilladsp</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__CAMILLADSP_BIN__</string>
+        <string>-l</string>
+        <string>info</string>
+        <string>-p</string>
+        <string>1234</string>
+        <string>__HOME__/.config/camilladsp/active.yml</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/camilladsp.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/camilladsp.log</string>
+</dict>
+</plist>

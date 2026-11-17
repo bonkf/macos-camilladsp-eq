@@ -1,0 +1,82 @@
+title: "Adam Audio A3X - Nearfield Desk Room EQ (UMIK-1 Calibrated)"
+description: "6-band stereo room correction via BlackHole 2ch -> Schiit Jotunheim (UMIK-1 718-6308)"
+
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  enable_rate_adjust: true
+  capture:
+    type: CoreAudio
+    channels: 2
+    device: "BlackHole 2ch"
+  playback:
+    type: CoreAudio
+    channels: 2
+    device: "Schiit USB Audio Gen 2"
+
+filters:
+  preamp:
+    type: Gain
+    parameters:
+      gain: -6.5
+      scale: dB
+
+  band_1_peaking_100hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 100
+      gain: 2.5
+      q: 2.60
+
+  band_2_peaking_133hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 133
+      gain: -13.4
+      q: 4.80
+
+  band_3_peaking_308hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 308
+      gain: -6.9
+      q: 4.50
+
+  band_4_peaking_445hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 445
+      gain: -2.6
+      q: 4.00
+
+  band_5_peaking_1240hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 1240
+      gain: 2.0
+      q: 2.35
+
+  band_6_peaking_2670hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 2670
+      gain: -3.8
+      q: 1.80
+
+pipeline:
+  - type: Filter
+    channels: [0, 1]
+    names:
+      - preamp
+      - band_1_peaking_100hz
+      - band_2_peaking_133hz
+      - band_3_peaking_308hz
+      - band_4_peaking_445hz
+      - band_5_peaking_1240hz
+      - band_6_peaking_2670hz

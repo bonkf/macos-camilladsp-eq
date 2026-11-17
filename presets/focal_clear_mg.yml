@@ -1,0 +1,118 @@
+title: "Focal Clear Mg Pro - Oratory1990 Harman Over-Ear"
+description: "System-wide 10-band Parametric EQ via BlackHole 2ch -> Schiit Jotunheim"
+
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  enable_rate_adjust: true
+  capture:
+    type: CoreAudio
+    channels: 2
+    device: "BlackHole 2ch"
+  playback:
+    type: CoreAudio
+    channels: 2
+    device: "Schiit USB Audio Gen 2"
+
+filters:
+  preamp:
+    type: Gain
+    parameters:
+      gain: -11.2
+      scale: dB
+
+  band_1_low_shelf_31hz:
+    type: Biquad
+    parameters:
+      type: Lowshelf
+      freq: 31
+      gain: 3.8
+      q: 0.71
+
+  band_2_low_shelf_105hz:
+    type: Biquad
+    parameters:
+      type: Lowshelf
+      freq: 105
+      gain: 5.5
+      q: 0.71
+
+  band_3_peaking_550hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 550
+      gain: 2.7
+      q: 0.80
+
+  band_4_peaking_1350hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 1350
+      gain: -2.9
+      q: 1.80
+
+  band_5_high_shelf_1800hz:
+    type: Biquad
+    parameters:
+      type: Highshelf
+      freq: 1800
+      gain: 9.0
+      q: 0.71
+
+  band_6_peaking_2960hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 2960
+      gain: -4.3
+      q: 2.50
+
+  band_7_peaking_3550hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 3550
+      gain: -2.1
+      q: 4.00
+
+  band_8_peaking_6050hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 6050
+      gain: -6.1
+      q: 5.00
+
+  band_9_peaking_7000hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 7000
+      gain: 3.5
+      q: 1.00
+
+  band_10_high_shelf_10000hz:
+    type: Biquad
+    parameters:
+      type: Highshelf
+      freq: 10000
+      gain: -8.0
+      q: 0.71
+
+pipeline:
+  - type: Filter
+    channels: [0, 1]
+    names:
+      - preamp
+      - band_1_low_shelf_31hz
+      - band_2_low_shelf_105hz
+      - band_3_peaking_550hz
+      - band_4_peaking_1350hz
+      - band_5_high_shelf_1800hz
+      - band_6_peaking_2960hz
+      - band_7_peaking_3550hz
+      - band_8_peaking_6050hz
+      - band_9_peaking_7000hz
+      - band_10_high_shelf_10000hz

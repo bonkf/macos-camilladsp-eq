@@ -1,0 +1,118 @@
+title: "Audeze LCD-2 Classic (Stock Pads) - Oratory1990 Harman Over-Ear"
+description: "System-wide 10-band Parametric EQ via BlackHole 2ch -> Schiit Modi 2"
+
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  enable_rate_adjust: true
+  capture:
+    type: CoreAudio
+    channels: 2
+    device: "BlackHole 2ch"
+  playback:
+    type: CoreAudio
+    channels: 2
+    device: "Speaker-Schiit USB Audio Device"
+
+filters:
+  preamp:
+    type: Gain
+    parameters:
+      gain: -8.0
+      scale: dB
+
+  band_1_low_shelf_35hz:
+    type: Biquad
+    parameters:
+      type: Lowshelf
+      freq: 35
+      gain: 2.5
+      q: 0.71
+
+  band_2_low_shelf_105hz:
+    type: Biquad
+    parameters:
+      type: Lowshelf
+      freq: 105
+      gain: 5.5
+      q: 0.71
+
+  band_3_peaking_260hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 260
+      gain: -1.0
+      q: 1.40
+
+  band_4_peaking_770hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 770
+      gain: -2.0
+      q: 2.50
+
+  band_5_peaking_1150hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 1150
+      gain: -3.1
+      q: 1.80
+
+  band_6_high_shelf_1300hz:
+    type: Biquad
+    parameters:
+      type: Highshelf
+      freq: 1300
+      gain: 6.0
+      q: 0.71
+
+  band_7_peaking_2800hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 2800
+      gain: -2.6
+      q: 2.00
+
+  band_8_peaking_4200hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 4200
+      gain: 2.5
+      q: 0.70
+
+  band_9_peaking_5900hz:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 5900
+      gain: -5.0
+      q: 5.00
+
+  band_10_high_shelf_10000hz:
+    type: Biquad
+    parameters:
+      type: Highshelf
+      freq: 10000
+      gain: -5.0
+      q: 0.71
+
+pipeline:
+  - type: Filter
+    channels: [0, 1]
+    names:
+      - preamp
+      - band_1_low_shelf_35hz
+      - band_2_low_shelf_105hz
+      - band_3_peaking_260hz
+      - band_4_peaking_770hz
+      - band_5_peaking_1150hz
+      - band_6_high_shelf_1300hz
+      - band_7_peaking_2800hz
+      - band_8_peaking_4200hz
+      - band_9_peaking_5900hz
+      - band_10_high_shelf_10000hz
