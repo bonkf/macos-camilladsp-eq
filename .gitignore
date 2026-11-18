@@ -3,3 +3,7 @@
 *.swp
 *~
 __pycache__/
+
+# Generated Alfred workflow artifacts / local prefs
+*.alfredworkflow
+prefs.plist

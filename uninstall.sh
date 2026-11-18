@@ -11,6 +11,7 @@ fi
 
 launchctl bootout "gui/$UID_NUM/com.user.camilladsp-autoswitch" >/dev/null 2>&1 || true
 launchctl bootout "gui/$UID_NUM/com.user.camilladsp" >/dev/null 2>&1 || true
+pkill -f "camilladsp-watcher\\.swift" >/dev/null 2>&1 || true
 pkill -x camilladsp-watcher >/dev/null 2>&1 || true
 pkill -x camilladsp >/dev/null 2>&1 || true
 

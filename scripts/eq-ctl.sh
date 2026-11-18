@@ -284,7 +284,7 @@ main() {
       active_target="$(readlink "$ACTIVE_LINK" 2>/dev/null || echo 'none')"
       active_name="${active_target:t}"
       dsp_pid="$(pgrep -x camilladsp | tr '\n' ' ' || true)"
-      watch_pid="$(pgrep -x camilladsp-watcher | tr '\n' ' ' || true)"
+      watch_pid="$(pgrep -f "camilladsp-watcher\\.swift" | tr '\n' ' ' || true)"
       desk_mode="$(get_desk_mode)"
 
       if has_output "$DESK_DAC"; then
