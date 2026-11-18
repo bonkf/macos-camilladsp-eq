@@ -1,7 +1,7 @@
 #!/bin/zsh
 set -euo pipefail
 
-export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin"
 
 CFG_DIR="$HOME/.config/camilladsp"
 ACTIVE_LINK="$CFG_DIR/active.yml"
@@ -22,12 +22,12 @@ notify() {
 
 has_output() {
   local target="$1"
-  SwitchAudioSource -a -t output 2>/dev/null | grep -Fxq "$target"
+  "$CFG_DIR/audio_devices.py" list 2>/dev/null | grep -Fxq "$target"
 }
 
 get_builtin_speakers() {
   local found
-  found="$(SwitchAudioSource -a -t output 2>/dev/null | grep -E 'MacBook .* (Speakers|Lautsprecher)|Mac .* (Speakers|Lautsprecher)|Built-in Output|Internal Speakers' | head -n 1 || true)"
+  found="$("$CFG_DIR/audio_devices.py" list 2>/dev/null | grep -E 'MacBook .* (Speakers|Lautsprecher)|Mac .* (Speakers|Lautsprecher)|Built-in Output|Internal Speakers' | head -n 1 || true)"
   if [[ -n "$found" ]]; then
     echo "$found"
   else
@@ -91,14 +91,14 @@ activate_eq() {
   if ! has_output "$BLACKHOLE"; then
     echo "Warning: '$BLACKHOLE' not yet active in CoreAudio (run 'sudo killall -9 coreaudiod' or reboot)." >&2
     if has_output "$dac_name"; then
-      SwitchAudioSource -t output -s "$dac_name" >/dev/null
+      "$CFG_DIR/audio_devices.py" set "$dac_name" >/dev/null
       echo "Fallback direct output -> $dac_name"
     fi
     return 1
   fi
 
   ensure_dsp_running "$preset_file"
-  SwitchAudioSource -t output -s "$BLACKHOLE" >/dev/null
+  "$CFG_DIR/audio_devices.py" set "$BLACKHOLE" >/dev/null
   echo "EQ active: $label ($BLACKHOLE -> $dac_name)"
 }
 
@@ -110,7 +110,7 @@ flat_bypass_eq() {
     activate_eq "lcd2c_flat_ab.yml" "Flat Bypass (-7.0 dB, No EQ)" "$COUCH_DAC"
   else
     builtin_spk="$(get_builtin_speakers)"
-    SwitchAudioSource -t output -s "$builtin_spk" >/dev/null
+    "$CFG_DIR/audio_devices.py" set "$builtin_spk" >/dev/null
     stop_dsp
     echo "EQ bypassed (Undocked): macOS output -> $builtin_spk"
   fi
@@ -125,7 +125,7 @@ raw_bypass_eq() {
     target_out="$COUCH_DAC"
   fi
 
-  SwitchAudioSource -t output -s "$target_out" >/dev/null
+  "$CFG_DIR/audio_devices.py" set "$target_out" >/dev/null
   stop_dsp
   echo "Raw 0 dB bypass: macOS output -> $target_out"
 }
@@ -227,7 +227,7 @@ main() {
       ;;
 
     toggle)
-      current_out="$(SwitchAudioSource -c -t output 2>/dev/null || echo '')"
+      current_out="$("$CFG_DIR/audio_devices.py" current 2>/dev/null || echo '')"
       active_target="$(readlink "$ACTIVE_LINK" 2>/dev/null || echo '')"
       active_name="${active_target:t}"
 
@@ -268,10 +268,10 @@ main() {
         activate_eq "lcd2c_stock.yml" "Audeze LCD-2 Classic (Harman EQ)" "$COUCH_DAC"
       else
         stop_dsp
-        current_out="$(SwitchAudioSource -c -t output 2>/dev/null || echo '')"
+        current_out="$("$CFG_DIR/audio_devices.py" current 2>/dev/null || echo '')"
         if [[ "$current_out" == "$BLACKHOLE" ]]; then
           builtin_spk="$(get_builtin_speakers)"
-          SwitchAudioSource -t output -s "$builtin_spk" >/dev/null
+          "$CFG_DIR/audio_devices.py" set "$builtin_spk" >/dev/null
           echo "Auto-routing (Undocked): switched output from $BLACKHOLE -> $builtin_spk"
         else
           echo "Auto-routing (Undocked): keeping current output ($current_out)"
@@ -280,7 +280,7 @@ main() {
       ;;
 
     status)
-      out_dev="$(SwitchAudioSource -c -t output 2>/dev/null || echo 'unknown')"
+      out_dev="$("$CFG_DIR/audio_devices.py" current 2>/dev/null || echo 'unknown')"
       active_target="$(readlink "$ACTIVE_LINK" 2>/dev/null || echo 'none')"
       active_name="${active_target:t}"
       dsp_pid="$(pgrep -x camilladsp | tr '\n' ' ' || true)"
