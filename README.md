@@ -11,21 +11,23 @@ Persistent, zero-polling system-wide Parametric EQ on macOS (`BlackHole 2ch` →
 | **Couch** | `Speaker-Schiit USB Audio Device` (Modi 2) | **Audeze LCD-2 Classic** (Stock pads) | `lcd2c_stock.yml` (Oratory1990 Harman 10-band) | `-8.0 dB` / `-7.0 dB` |
 | **Undocked / Office** | Any other output (Built-in, AirPods, HDMI) | Unchanged | `camilladsp` stopped (`0%` CPU); existing output preserved | — |
 
-> **Multi-Mac / KVM Friendly:** Each MacBook runs its own event-driven CoreAudio listener (`camilladsp-watcher`, `0.0%` idle CPU). Switching a USB dock/switch from your personal MacBook to your work MacBook automatically stops DSP + restores built-in speakers on the unplugged Mac and activates DSP + BlackHole routing on the newly plugged Mac within ~1 second.
+> **Multi-Mac / KVM Friendly:** Each MacBook runs its own event-driven CoreAudio listener (`camilladsp-watcher.swift` via `/usr/bin/swift`, `0.0%` idle CPU). Switching a USB dock/switch from your personal MacBook to your work MacBook automatically stops DSP + restores built-in speakers on the unplugged Mac and activates DSP + BlackHole routing on the newly plugged Mac within ~1 second.
 
 ---
 
 ## Quick Install (Work MacBook / Fresh Mac)
 
 ### Prerequisites
-- **Xcode Command Line Tools** (`swiftc` & `python3`): `xcode-select --install`
+- **Xcode Command Line Tools** (`swift` & `python3`): `xcode-select --install`
 - **Homebrew** (`brew`) — used by `install.sh` to install `blackhole-2ch` and `switchaudio-osx` if missing
-- **Alfred 5** (with Powerpack) — optional, for the `eq` launcher workflow
+- **Alfred 5** (with Powerpack) — optional, for the `eq` launcher workflow (open Alfred 5 at least once beforehand so `./install.sh` can auto-install the workflow directly into Alfred's preferences)
 
 ### One-Command Setup
 
 ```zsh
-git clone git@github.com:bonkf/macos-camilladsp-eq.git ~/code/macos-camilladsp-eq
+git clone https://github.com/bonkf/macos-camilladsp-eq.git ~/code/macos-camilladsp-eq
+# Optional safeguard on read-only / work clones to prevent accidental pushes:
+git -C ~/code/macos-camilladsp-eq remote set-url --push origin no_push
 cd ~/code/macos-camilladsp-eq
 ./install.sh
 source ~/.zshrc
@@ -33,13 +35,15 @@ source ~/.zshrc
 
 ### What `./install.sh` Does
 1. Installs **`switchaudio-osx`** and **`blackhole-2ch`** via Homebrew if not yet installed (and restarts `coreaudiod` once if `BlackHole 2ch` isn't registered yet).
-2. Locates `camilladsp` or downloads the official precompiled **`CamillaDSP v4.1.3`** binary (`arm64` / `x86_64`) into `~/.local/bin/camilladsp` (falls back to `cargo install camilladsp --locked` if GitHub releases are blocked on corporate Wi-Fi/VPN).
-3. Installs all YAML presets & `$HOME`-portable scripts to `~/.config/camilladsp/`, validates every preset with `camilladsp -c`, and compiles the native Swift CoreAudio listener (`camilladsp-watcher`).
+2. Locates `camilladsp` or downloads the official precompiled **`CamillaDSP v4.1.3`** binary (`arm64` / `x86_64`) into `~/.local/bin/camilladsp` (falls back to `cargo install camilladsp --locked` if GitHub releases are blocked on corporate Wi-Fi/VPN), and verifies both `SwitchAudioSource` and `camilladsp` can execute (printing their SHA-256 hashes if blocked by endpoint allowlisting).
+3. Installs all YAML presets & `$HOME`-portable scripts to `~/.config/camilladsp/`, validates every preset with `camilladsp -c`, and installs the Swift CoreAudio listener (`camilladsp-watcher.swift`, run directly via `/usr/bin/swift` without ad-hoc binary compilation).
 4. Renders and loads `~/Library/LaunchAgents/com.user.camilladsp-autoswitch.plist` & `com.user.camilladsp.plist`.
-5. Generates SF Symbol icons, builds `alfred/CamillaDSP-EQ.alfredworkflow`, and installs the workflow directly into Alfred 5's active preferences directory (preserving any custom hotkey you've configured).
+5. Generates SF Symbol icons, writes a fallback bundle to `~/.config/camilladsp/CamillaDSP-EQ.alfredworkflow` (leaving the Git working tree untouched), and installs the workflow directly into Alfred 5's active preferences directory if Alfred has been opened at least once (preserving any custom hotkey you've configured).
 6. Appends `eq-*` shell helper functions to `~/.zshrc` if not already present.
 
-*(Note for corporate/MDM Macs: if Homebrew cask installation of `blackhole-2ch` is restricted or `GitHub` release downloads require proxy auth, install BlackHole 2ch via your org's software center or pkg installer first, then re-run `./install.sh`.)*
+### First-Run & Managed Mac Notes
+- **macOS Microphone Permission (TCC):** macOS treats capturing audio from `BlackHole 2ch` as **Microphone** access. On a fresh Mac, run `~/.local/bin/camilladsp ~/.config/camilladsp/active.yml` once interactively in Terminal or iTerm to trigger and approve the Microphone prompt (`Ctrl+C` afterwards, then run `eq-auto`), as headless `launchd` startup cannot present a TCC dialog and may otherwise silently capture zeros.
+- **Endpoint Binary Allowlisting & Corporate/MDM Macs:** `camilladsp-watcher.swift` executes via Apple's system-signed `/usr/bin/swift` so no locally compiled binary needs approval. If `SwitchAudioSource` or `camilladsp` execution is blocked, `./install.sh` prints the exact binary path and `SHA-256` hash to request allowlist approval before re-running `./install.sh`. If Homebrew cask installation of `blackhole-2ch` is restricted or GitHub release downloads require proxy auth, install BlackHole 2ch via your org's software center or `.pkg` installer first, then re-run `./install.sh`.
 
 ---
 

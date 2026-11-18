@@ -14,9 +14,25 @@ info() { printf "\033[1;34m==>\033[0m %s\n" "$*"; }
 ok()   { printf "\033[1;32m ✓\033[0m %s\n" "$*"; }
 warn() { printf "\033[1;33m !\033[0m %s\n" "$*"; }
 
-# 1. Check Xcode Command Line Tools (swiftc + python3)
-if ! command -v swiftc >/dev/null 2>&1; then
-  echo "Error: 'swiftc' not found. Install Xcode Command Line Tools first: xcode-select --install" >&2
+die_blocked_bin() {
+  local bin_path="$1"
+  local real_path="${bin_path:A}"
+  local sha256
+  sha256="$(shasum -a 256 "$bin_path" 2>/dev/null | awk '{print $1}' || true)"
+  echo "" >&2
+  echo "Error: Failed to execute '$bin_path'." >&2
+  if [[ "$real_path" != "$bin_path" ]]; then
+    echo "  Resolved path : $real_path" >&2
+  fi
+  echo "  Binary path   : $bin_path" >&2
+  echo "  SHA-256       : ${sha256:-unavailable}" >&2
+  echo "If this Mac enforces endpoint binary allowlisting (e.g. Santa / MDM), get the SHA-256 above approved before re-running ./install.sh." >&2
+  exit 1
+}
+
+# 1. Check Xcode Command Line Tools (swift + python3)
+if ! command -v swift >/dev/null 2>&1; then
+  echo "Error: 'swift' not found. Install Xcode Command Line Tools first: xcode-select --install" >&2
   exit 1
 fi
 
@@ -30,7 +46,11 @@ if ! command -v SwitchAudioSource >/dev/null 2>&1; then
     exit 1
   fi
 fi
-ok "SwitchAudioSource: $(command -v SwitchAudioSource)"
+SWITCHAUDIO_BIN="$(command -v SwitchAudioSource)"
+if ! SwitchAudioSource -a -t output >/dev/null 2>&1; then
+  die_blocked_bin "$SWITCHAUDIO_BIN"
+fi
+ok "SwitchAudioSource: $SWITCHAUDIO_BIN"
 
 if [[ ! -d "/Library/Audio/Plug-Ins/HAL/BlackHole2ch.driver" ]]; then
   if command -v brew >/dev/null 2>&1; then
@@ -82,9 +102,12 @@ if [[ -z "$CAMILLADSP_BIN" ]]; then
     fi
   fi
 fi
-ok "CamillaDSP binary: $CAMILLADSP_BIN ($("$CAMILLADSP_BIN" --version 2>/dev/null || echo 'ok'))"
+if ! "$CAMILLADSP_BIN" --version >/dev/null 2>&1; then
+  die_blocked_bin "$CAMILLADSP_BIN"
+fi
+ok "CamillaDSP binary: $CAMILLADSP_BIN ($("$CAMILLADSP_BIN" --version))"
 
-# 4. Install presets, scripts, and compile CoreAudio watcher
+# 4. Install presets, scripts, and CoreAudio watcher
 info "Installing presets and control scripts to $CFG_DIR..."
 mkdir -p "$CFG_DIR"
 cp "$REPO_DIR"/presets/*.yml "$CFG_DIR/"
@@ -93,6 +116,7 @@ cp "$REPO_DIR"/scripts/alfred-filter.py "$CFG_DIR/alfred-filter.py"
 cp "$REPO_DIR"/scripts/sync-audio.sh "$CFG_DIR/sync-audio.sh"
 cp "$REPO_DIR"/scripts/toggle-eq.sh "$CFG_DIR/toggle-eq.sh"
 cp "$REPO_DIR"/watcher/camilladsp-watcher.swift "$CFG_DIR/camilladsp-watcher.swift"
+rm -f "$CFG_DIR/camilladsp-watcher"
 chmod +x "$CFG_DIR/eq-ctl.sh" "$CFG_DIR/alfred-filter.py" "$CFG_DIR/sync-audio.sh" "$CFG_DIR/toggle-eq.sh"
 
 [[ -f "$CFG_DIR/desk-mode" ]] || echo "focal" > "$CFG_DIR/desk-mode"
@@ -103,10 +127,7 @@ for yml in "$CFG_DIR"/*.yml; do
   "$CAMILLADSP_BIN" -c "$yml" >/dev/null
 done
 ok "Validated all CamillaDSP YAML presets"
-
-info "Compiling native CoreAudio device watcher..."
-swiftc -O "$CFG_DIR/camilladsp-watcher.swift" -o "$CFG_DIR/camilladsp-watcher"
-ok "Compiled $CFG_DIR/camilladsp-watcher"
+ok "Installed CoreAudio watcher ($CFG_DIR/camilladsp-watcher.swift)"
 
 # 5. Render & load LaunchAgents
 info "Configuring macOS LaunchAgents in $LAUNCH_DIR..."
@@ -121,6 +142,7 @@ sed -e "s|__HOME__|$HOME|g" \
 
 plutil -lint "$LAUNCH_DIR/com.user.camilladsp.plist" "$LAUNCH_DIR/com.user.camilladsp-autoswitch.plist" >/dev/null
 
+launchctl bootout "gui/$UID_NUM/com.user.camilladsp" >/dev/null 2>&1 || true
 launchctl bootout "gui/$UID_NUM/com.user.camilladsp-autoswitch" >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$UID_NUM" "$LAUNCH_DIR/com.user.camilladsp-autoswitch.plist"
 ok "LaunchAgent com.user.camilladsp-autoswitch active"
@@ -130,7 +152,8 @@ info "Building Alfred 5 workflow icons & bundle..."
 TMP_WF="$(mktemp -d -t alfred_eq_wf.XXXXXX)"
 swift "$REPO_DIR/alfred/gen_icons.swift" "$TMP_WF"
 cp "$REPO_DIR/alfred/info.plist" "$TMP_WF/info.plist"
-(cd "$TMP_WF" && /usr/bin/zip -q -r "$REPO_DIR/alfred/CamillaDSP-EQ.alfredworkflow" .)
+rm -f "$CFG_DIR/CamillaDSP-EQ.alfredworkflow"
+(cd "$TMP_WF" && /usr/bin/zip -q -r "$CFG_DIR/CamillaDSP-EQ.alfredworkflow" .)
 
 ALFRED_PREFS_JSON="$HOME/Library/Application Support/Alfred/prefs.json"
 if [[ -f "$ALFRED_PREFS_JSON" ]]; then
@@ -155,10 +178,10 @@ PY
     cp "$TMP_WF"/* "$WF_DEST/"
     ok "Installed Alfred 5 workflow -> $WF_DEST (keyword: 'eq')"
   else
-    warn "Alfred prefs folder not found; double-click alfred/CamillaDSP-EQ.alfredworkflow after opening Alfred."
+    warn "Alfred prefs folder not found; double-click $CFG_DIR/CamillaDSP-EQ.alfredworkflow after opening Alfred."
   fi
 else
-  warn "Alfred 5 not detected yet; double-click $REPO_DIR/alfred/CamillaDSP-EQ.alfredworkflow anytime to import."
+  warn "Alfred 5 not detected yet; double-click $CFG_DIR/CamillaDSP-EQ.alfredworkflow anytime to import."
 fi
 rm -rf "$TMP_WF"
 
