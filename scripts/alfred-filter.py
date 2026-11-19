@@ -2,13 +2,21 @@
 import json
 import os
 import subprocess
+import sys
 
 HOME = os.path.expanduser("~")
 ENV = dict(
     os.environ,
-    PATH=f"{HOME}/.local/bin:{HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    PATH=f"{HOME}/.local/bin:{HOME}/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin",
 )
 CFG_DIR = os.path.join(HOME, ".config", "camilladsp")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+for _dir in (CFG_DIR, SCRIPT_DIR):
+    if _dir not in sys.path and os.path.isdir(_dir):
+        sys.path.insert(0, _dir)
+
+from audio_devices import get_default_output_device, list_output_devices  # noqa: E402
+
 ACTIVE_LINK = os.path.join(CFG_DIR, "active.yml")
 
 DESK_DAC = "Schiit USB Audio Gen 2"
@@ -23,8 +31,16 @@ def run_out(cmd):
         return ""
 
 
-outputs = set(run_out(["SwitchAudioSource", "-a", "-t", "output"]).splitlines())
-current_out = run_out(["SwitchAudioSource", "-c", "-t", "output"])
+try:
+    outputs = set(list_output_devices())
+except Exception:
+    outputs = set()
+
+try:
+    current_out = get_default_output_device()
+except Exception:
+    current_out = ""
+
 dsp_running = bool(run_out(["pgrep", "-x", "camilladsp"]))
 
 try:

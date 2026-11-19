@@ -99,8 +99,7 @@
 				<key>runningsubtext</key>
 				<string>Checking CamillaDSP status…</string>
 				<key>script</key>
-				<string>export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
-python3 "$HOME/.config/camilladsp/alfred-filter.py"</string>
+				<string>/usr/bin/python3 "$HOME/.config/camilladsp/alfred-filter.py"</string>
 				<key>scriptargtype</key>
 				<integer>1</integer>
 				<key>scriptfile</key>

@@ -19,8 +19,9 @@ Persistent, zero-polling system-wide Parametric EQ on macOS (`BlackHole 2ch` →
 
 ### Prerequisites
 - **Xcode Command Line Tools** (`swift` & `python3`): `xcode-select --install`
-- **Homebrew** (`brew`) — used by `install.sh` to install `blackhole-2ch` and `switchaudio-osx` if missing
 - **Alfred 5** (with Powerpack) — optional, for the `eq` launcher workflow (open Alfred 5 at least once beforehand so `./install.sh` can auto-install the workflow directly into Alfred's preferences)
+
+*(Zero package managers required — no `Homebrew` or `switchaudio-osx` needed.)*
 
 ### One-Command Setup
 
@@ -34,16 +35,16 @@ source ~/.zshrc
 ```
 
 ### What `./install.sh` Does
-1. Installs **`switchaudio-osx`** and **`blackhole-2ch`** via Homebrew if not yet installed (and restarts `coreaudiod` once if `BlackHole 2ch` isn't registered yet).
-2. Locates `camilladsp` or downloads the official precompiled **`CamillaDSP v4.1.3`** binary (`arm64` / `x86_64`) into `~/.local/bin/camilladsp` (falls back to `cargo install camilladsp --locked` if GitHub releases are blocked on corporate Wi-Fi/VPN), and verifies both `SwitchAudioSource` and `camilladsp` can execute (printing their SHA-256 hashes if blocked by endpoint allowlisting).
-3. Installs all YAML presets & `$HOME`-portable scripts to `~/.config/camilladsp/`, validates every preset with `camilladsp -c`, and installs the Swift CoreAudio listener (`camilladsp-watcher.swift`, run directly via `/usr/bin/swift` without ad-hoc binary compilation).
+1. Installs **`BlackHole 2ch` (`v0.7.1`)** directly from Existential Audio's official signed `.pkg` if not already present — verifying both its pinned `SHA-256` checksum and Apple Developer ID signature (`Developer ID Installer: Existential Audio Inc.`) before running `installer` — and restarts `coreaudiod` once if `BlackHole 2ch` isn't registered yet.
+2. Locates `camilladsp` or downloads the official precompiled **`CamillaDSP v4.1.3`** binary (`arm64` / `x86_64`) into `~/.local/bin/camilladsp` (falls back to `cargo install camilladsp --locked` if GitHub releases are blocked on corporate Wi-Fi/VPN), and verifies `camilladsp` can execute (printing its `SHA-256` hash if blocked by endpoint allowlisting).
+3. Installs all YAML presets, `$HOME`-portable control scripts, the zero-dependency CoreAudio output helper (`audio_devices.py` via `/usr/bin/python3` + `CoreAudio.framework`), and the Swift CoreAudio listener (`camilladsp-watcher.swift`, run directly via `/usr/bin/swift` without ad-hoc binary compilation) to `~/.config/camilladsp/`, and validates every preset with `camilladsp -c`.
 4. Renders and loads `~/Library/LaunchAgents/com.user.camilladsp-autoswitch.plist` & `com.user.camilladsp.plist`.
 5. Generates SF Symbol icons, writes a fallback bundle to `~/.config/camilladsp/CamillaDSP-EQ.alfredworkflow` (leaving the Git working tree untouched), and installs the workflow directly into Alfred 5's active preferences directory if Alfred has been opened at least once (preserving any custom hotkey you've configured).
 6. Appends `eq-*` shell helper functions to `~/.zshrc` if not already present.
 
 ### First-Run & Managed Mac Notes
 - **macOS Microphone Permission (TCC):** macOS treats capturing audio from `BlackHole 2ch` as **Microphone** access. On a fresh Mac, run `~/.local/bin/camilladsp ~/.config/camilladsp/active.yml` once interactively in Terminal or iTerm to trigger and approve the Microphone prompt (`Ctrl+C` afterwards, then run `eq-auto`), as headless `launchd` startup cannot present a TCC dialog and may otherwise silently capture zeros.
-- **Endpoint Binary Allowlisting & Corporate/MDM Macs:** `camilladsp-watcher.swift` executes via Apple's system-signed `/usr/bin/swift` so no locally compiled binary needs approval. If `SwitchAudioSource` or `camilladsp` execution is blocked, `./install.sh` prints the exact binary path and `SHA-256` hash to request allowlist approval before re-running `./install.sh`. If Homebrew cask installation of `blackhole-2ch` is restricted or GitHub release downloads require proxy auth, install BlackHole 2ch via your org's software center or `.pkg` installer first, then re-run `./install.sh`.
+- **Endpoint Binary Allowlisting & Corporate/MDM Macs:** Both `camilladsp-watcher.swift` (`/usr/bin/swift`) and `audio_devices.py` (`/usr/bin/python3` + `CoreAudio.framework`) execute via Apple's system-signed binaries, so **only `camilladsp`** requires binary-allowlist approval on managed Macs. If `camilladsp` execution is blocked, `./install.sh` prints the exact binary path and `SHA-256` hash to request approval before re-running `./install.sh`. If corporate firewall/proxy rules block downloading `BlackHole2ch-0.7.1.pkg` or GitHub releases, install BlackHole 2ch via your org's software center or `.pkg` installer first, then re-run `./install.sh`.
 
 ---
 
@@ -69,7 +70,7 @@ source ~/.zshrc
 ## Adding Another DAC (e.g., Office Dongle / Desktop Amp)
 1. Plug in the DAC and find its exact CoreAudio name:
    ```zsh
-   SwitchAudioSource -a -t output
+   ~/.config/camilladsp/audio_devices.py list
    ```
 2. Add a `<device>.yml` preset in `presets/` with `playback.device` set to that exact string.
 3. Add the device constant and branch in `scripts/eq-ctl.sh` and `scripts/alfred-filter.py`, then re-run `./install.sh`.

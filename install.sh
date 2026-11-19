@@ -7,8 +7,10 @@ LAUNCH_DIR="$HOME/Library/LaunchAgents"
 LOCAL_BIN="$HOME/.local/bin"
 UID_NUM="$(id -u)"
 CAMILLADSP_VERSION="v4.1.3"
+BLACKHOLE_PKG_URL="https://existential.audio/downloads/BlackHole2ch-0.7.1.pkg"
+BLACKHOLE_PKG_SHA256="57b540f27a3e29c37e310e01bee0fdfab76733087e47f997ef9dccf851400dcf"
 
-export PATH="$LOCAL_BIN:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PATH="$LOCAL_BIN:$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin"
 
 info() { printf "\033[1;34m==>\033[0m %s\n" "$*"; }
 ok()   { printf "\033[1;32m ✓\033[0m %s\n" "$*"; }
@@ -31,38 +33,50 @@ die_blocked_bin() {
 }
 
 # 1. Check Xcode Command Line Tools (swift + python3)
-if ! command -v swift >/dev/null 2>&1; then
-  echo "Error: 'swift' not found. Install Xcode Command Line Tools first: xcode-select --install" >&2
+if ! command -v swift >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+  echo "Error: 'swift' and/or 'python3' not found. Install Xcode Command Line Tools first: xcode-select --install" >&2
   exit 1
 fi
 
-# 2. Check / install SwitchAudioSource & BlackHole 2ch
-if ! command -v SwitchAudioSource >/dev/null 2>&1; then
-  if command -v brew >/dev/null 2>&1; then
-    info "Installing switchaudio-osx via Homebrew..."
-    brew install switchaudio-osx
-  else
-    echo "Error: 'SwitchAudioSource' not found and Homebrew is unavailable. Install switchaudio-osx first." >&2
+# 2. Check / install BlackHole 2ch (official signed .pkg)
+if [[ ! -d "/Library/Audio/Plug-Ins/HAL/BlackHole2ch.driver" ]]; then
+  info "Downloading BlackHole 2ch v0.7.1 installer from Existential Audio..."
+  TMP_PKG_DIR="$(mktemp -d -t blackhole_pkg.XXXXXX)"
+  TMP_PKG="$TMP_PKG_DIR/BlackHole2ch-0.7.1.pkg"
+  if ! curl -fsSL "$BLACKHOLE_PKG_URL" -o "$TMP_PKG"; then
+    rm -rf "$TMP_PKG_DIR"
+    echo "Error: Could not download BlackHole 2ch from $BLACKHOLE_PKG_URL." >&2
+    echo "Install BlackHole 2ch via .pkg first (https://existential.audio/blackhole/), then re-run ./install.sh." >&2
     exit 1
   fi
-fi
-SWITCHAUDIO_BIN="$(command -v SwitchAudioSource)"
-if ! SwitchAudioSource -a -t output >/dev/null 2>&1; then
-  die_blocked_bin "$SWITCHAUDIO_BIN"
-fi
-ok "SwitchAudioSource: $SWITCHAUDIO_BIN"
 
-if [[ ! -d "/Library/Audio/Plug-Ins/HAL/BlackHole2ch.driver" ]]; then
-  if command -v brew >/dev/null 2>&1; then
-    info "Installing BlackHole 2ch virtual audio driver via Homebrew (prompts for sudo)..."
-    brew install --cask blackhole-2ch
-  else
-    warn "BlackHole 2ch not found at /Library/Audio/Plug-Ins/HAL/BlackHole2ch.driver."
-    warn "Download and install BlackHole 2ch from https://existential.audio/blackhole/ before activating EQ."
+  ACTUAL_PKG_SHA256="$(shasum -a 256 "$TMP_PKG" | awk '{print $1}')"
+  if [[ "$ACTUAL_PKG_SHA256" != "$BLACKHOLE_PKG_SHA256" ]]; then
+    rm -rf "$TMP_PKG_DIR"
+    echo "Error: SHA-256 mismatch for downloaded BlackHole2ch-0.7.1.pkg!" >&2
+    echo "  Expected : $BLACKHOLE_PKG_SHA256" >&2
+    echo "  Actual   : $ACTUAL_PKG_SHA256" >&2
+    exit 1
   fi
+
+  if ! PKG_SIG_OUT="$(pkgutil --check-signature "$TMP_PKG" 2>&1)" || ! grep -Fq "Developer ID Installer: Existential Audio Inc." <<< "$PKG_SIG_OUT"; then
+    rm -rf "$TMP_PKG_DIR"
+    echo "Error: Apple Developer ID signature verification failed for BlackHole2ch-0.7.1.pkg!" >&2
+    echo "$PKG_SIG_OUT" >&2
+    exit 1
+  fi
+  ok "Verified BlackHole2ch-0.7.1.pkg (SHA-256 + Developer ID signature)"
+
+  info "Installing BlackHole 2ch virtual audio driver (prompts for sudo)..."
+  if ! sudo installer -pkg "$TMP_PKG" -target /; then
+    rm -rf "$TMP_PKG_DIR"
+    echo "Error: Failed to install BlackHole 2ch via 'sudo installer -pkg'." >&2
+    exit 1
+  fi
+  rm -rf "$TMP_PKG_DIR"
 fi
 
-if ! SwitchAudioSource -a -t output 2>/dev/null | grep -Fxq "BlackHole 2ch"; then
+if ! "$REPO_DIR/scripts/audio_devices.py" list 2>/dev/null | grep -Fxq "BlackHole 2ch"; then
   if [[ -d "/Library/Audio/Plug-Ins/HAL/BlackHole2ch.driver" ]]; then
     info "Reloading macOS coreaudiod so 'BlackHole 2ch' appears immediately (prompts for sudo)..."
     sudo killall -9 coreaudiod || true
@@ -111,13 +125,14 @@ ok "CamillaDSP binary: $CAMILLADSP_BIN ($("$CAMILLADSP_BIN" --version))"
 info "Installing presets and control scripts to $CFG_DIR..."
 mkdir -p "$CFG_DIR"
 cp "$REPO_DIR"/presets/*.yml "$CFG_DIR/"
+cp "$REPO_DIR"/scripts/audio_devices.py "$CFG_DIR/audio_devices.py"
 cp "$REPO_DIR"/scripts/eq-ctl.sh "$CFG_DIR/eq-ctl.sh"
 cp "$REPO_DIR"/scripts/alfred-filter.py "$CFG_DIR/alfred-filter.py"
 cp "$REPO_DIR"/scripts/sync-audio.sh "$CFG_DIR/sync-audio.sh"
 cp "$REPO_DIR"/scripts/toggle-eq.sh "$CFG_DIR/toggle-eq.sh"
 cp "$REPO_DIR"/watcher/camilladsp-watcher.swift "$CFG_DIR/camilladsp-watcher.swift"
 rm -f "$CFG_DIR/camilladsp-watcher"
-chmod +x "$CFG_DIR/eq-ctl.sh" "$CFG_DIR/alfred-filter.py" "$CFG_DIR/sync-audio.sh" "$CFG_DIR/toggle-eq.sh"
+chmod +x "$CFG_DIR/audio_devices.py" "$CFG_DIR/eq-ctl.sh" "$CFG_DIR/alfred-filter.py" "$CFG_DIR/sync-audio.sh" "$CFG_DIR/toggle-eq.sh"
 
 [[ -f "$CFG_DIR/desk-mode" ]] || echo "focal" > "$CFG_DIR/desk-mode"
 [[ -L "$CFG_DIR/active.yml" ]] || ln -sfn "$CFG_DIR/focal_clear_mg.yml" "$CFG_DIR/active.yml"
