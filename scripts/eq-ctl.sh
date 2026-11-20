@@ -54,6 +54,12 @@ set_desk_mode() {
 ensure_dsp_running() {
   local preset_file="$1"
   local target="$CFG_DIR/$preset_file"
+  local prev_target
+  prev_target="$(readlink "$ACTIVE_LINK" 2>/dev/null || echo '')"
+
+  if pgrep -qx camilladsp && [[ "$prev_target" == "$target" ]]; then
+    return 0
+  fi
 
   local check_out
   if ! check_out="$(camilladsp -c "$target" 2>&1)"; then
@@ -66,11 +72,10 @@ ensure_dsp_running() {
 
   if pgrep -qx camilladsp; then
     pkill -HUP -x camilladsp
+  elif ! launchctl print "gui/$UID_NUM/com.user.camilladsp" >/dev/null 2>&1; then
+    launchctl bootstrap "gui/$UID_NUM" "$PLIST_DSP" >/dev/null 2>&1 || true
   else
-    if ! launchctl print "gui/$UID_NUM/com.user.camilladsp" >/dev/null 2>&1; then
-      launchctl bootstrap "gui/$UID_NUM" "$PLIST_DSP" >/dev/null 2>&1 || true
-    fi
-    launchctl kickstart -kp "gui/$UID_NUM/com.user.camilladsp" >/dev/null 2>&1 || true
+    launchctl kickstart "gui/$UID_NUM/com.user.camilladsp" >/dev/null 2>&1 || true
   fi
 }
 
@@ -86,9 +91,8 @@ activate_eq() {
   local label="$2"
   local dac_name="$3"
 
-  ln -sfn "$CFG_DIR/$preset_file" "$ACTIVE_LINK"
-
   if ! has_output "$BLACKHOLE"; then
+    ln -sfn "$CFG_DIR/$preset_file" "$ACTIVE_LINK"
     echo "Warning: '$BLACKHOLE' not yet active in CoreAudio (run 'sudo killall -9 coreaudiod' or reboot)." >&2
     if has_output "$dac_name"; then
       "$CFG_DIR/audio_devices.py" set "$dac_name" >/dev/null
@@ -98,7 +102,9 @@ activate_eq() {
   fi
 
   ensure_dsp_running "$preset_file"
-  "$CFG_DIR/audio_devices.py" set "$BLACKHOLE" >/dev/null
+  if [[ "$("$CFG_DIR/audio_devices.py" current 2>/dev/null || echo '')" != "$BLACKHOLE" ]]; then
+    "$CFG_DIR/audio_devices.py" set "$BLACKHOLE" >/dev/null
+  fi
   echo "EQ active: $label ($BLACKHOLE -> $dac_name)"
 }
 

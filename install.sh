@@ -159,6 +159,8 @@ plutil -lint "$LAUNCH_DIR/com.user.camilladsp.plist" "$LAUNCH_DIR/com.user.camil
 
 launchctl bootout "gui/$UID_NUM/com.user.camilladsp" >/dev/null 2>&1 || true
 launchctl bootout "gui/$UID_NUM/com.user.camilladsp-autoswitch" >/dev/null 2>&1 || true
+pkill -f "camilladsp-watcher\\.swift" >/dev/null 2>&1 || true
+pkill -x camilladsp-watcher >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$UID_NUM" "$LAUNCH_DIR/com.user.camilladsp-autoswitch.plist"
 ok "LaunchAgent com.user.camilladsp-autoswitch active"
 

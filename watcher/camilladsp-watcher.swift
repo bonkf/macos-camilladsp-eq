@@ -36,7 +36,7 @@ let status = AudioObjectAddPropertyListenerBlock(
     &address,
     DispatchQueue.main
 ) { _, _ in
-    scheduleSync(delay: 1.0)
+    scheduleSync(delay: 0.15)
 }
 
 if status != noErr {
